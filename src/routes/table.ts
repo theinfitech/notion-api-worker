@@ -23,13 +23,15 @@ export const getTableData = async (
   const collectionRows = collection.value.schema;
   const collectionColKeys = Object.keys(collectionRows);
 
-  const tableArr: RowType[] = table.result.reducerResults.collection_group_results.blockIds.map(
+  const blockIds =
+    table.result?.reducerResults?.collection_group_results?.blockIds || [];
+
+  const tableArr: RowType[] = blockIds.map(
     (id: string) => table.recordMap.block[id]
   );
 
   const tableData = tableArr.filter(
-    (b) =>
-      b.value && b.value.properties && b.value.parent_id === collection.value.id
+    (b) => b && b.value
   );
 
   type Row = { id: string; [key: string]: RowContentType };
@@ -37,21 +39,31 @@ export const getTableData = async (
   const rows: Row[] = [];
 
   for (const td of tableData) {
-    let row: Row = { id: td.value.id };
+    // Handle potential nested value structure
+    const blockValue = td.value && (td.value as any).value ? (td.value as any).value : td.value;
+    const blockProxy = { value: blockValue }; // Create a proxy object that matches RowType structure
+
+    let row: Row = { id: blockValue.id };
 
     for (const key of collectionColKeys) {
-      const val = td.value.properties[key];
+      const val = blockValue.properties ? blockValue.properties[key] : null;
       if (val) {
         const schema = collectionRows[key];
-        row[schema.name] = raw ? val : getNotionValue(val, schema.type, td);
+        row[schema.name] = raw ? val : getNotionValue(val, schema.type, blockProxy as any);
         if (schema.type === "person" && row[schema.name]) {
           const users = await fetchNotionUsers(row[schema.name] as string[]);
           row[schema.name] = users as any;
+        }
+      } else {
+        const schema = collectionRows[key];
+        if (schema) {
+             row[schema.name] = null;
         }
       }
     }
     rows.push(row);
   }
+
 
   return { rows, schema: collectionRows };
 };

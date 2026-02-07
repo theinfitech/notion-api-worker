@@ -58,7 +58,8 @@ export type RowContentType =
   | { title: string; id: string }
   | UserType[]
   | DecorationType[]
-  | { name: string; url: string }[];
+  | { name: string; url: string }[]
+  | null;
 
 export interface BaseValueType {
   id: string;
